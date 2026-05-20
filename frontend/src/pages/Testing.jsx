@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TestTube, Loader2, CheckCircle2, XCircle, Copy, Check,
@@ -104,46 +104,32 @@ export default function Testing() {
   const [code, setCode] = useState('');
   const [framework, setFramework] = useState('vitest');
   const [testType, setTestType] = useState('unit');
-  const queryClient = useQueryClient();
-
-  const { data: suitesData = [] } = useQuery({
-    queryKey: ['testSuites'],
-    queryFn: () => base44.entities.TestSuite.list('-created_date'),
-  });
-  const suites = Array.isArray(suitesData) ? suitesData : [];
+  const [suites, setSuites] = useState([]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a testing expert. Generate a comprehensive ${testType} test suite using ${framework}.\n\nCode to test:\n${code}\n\nGenerate:\n1. Complete test file with ALL tests\n2. Happy path tests\n3. Error/edge case tests (null, undefined, empty, overflow)\n4. Mock implementations for dependencies\n5. Test data factories/fixtures\n6. Setup and teardown\n7. Async tests with proper await\n8. ${testType === 'e2e' ? 'Full user workflow scenarios' : 'Isolated unit tests'}\n\nAim for 90%+ coverage. Use ${framework} syntax exclusively. Return working, copy-paste ready code.`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            test_name: { type: 'string' },
-            test_code: { type: 'string' },
-            tests_total: { type: 'number' },
-            coverage_estimate: { type: 'number' },
-            description: { type: 'string' },
-          }
-        }
-      });
-
-      await base44.entities.TestSuite.create({
-        name: res.test_name || `${testType} tests — ${new Date().toLocaleDateString()}`,
+      const prompt = `Generate a comprehensive ${testType} test suite using ${framework}.\n\nCode to test:\n${code}\n\nGenerate:\n1. Complete test file with ALL tests\n2. Happy path tests\n3. Error/edge case tests (null, undefined, empty, overflow)\n4. Mock implementations for dependencies\n5. Test data factories/fixtures\n6. Setup and teardown\n7. Async tests with proper await\n8. ${testType === 'e2e' ? 'Full user workflow scenarios' : 'Isolated unit tests'}\n\nAim for 90%+ coverage. Use ${framework} syntax exclusively. Return working, copy-paste ready code.`;
+      
+      const res = await apiClient.agents.run('testing', prompt);
+      
+      const newSuite = {
+        id: Date.now(),
+        name: `${testType} tests — ${new Date().toLocaleDateString()}`,
         test_type: testType,
         framework,
-        code: res.test_code,
+        code: res.output,
         status: 'generated',
-        tests_total: res.tests_total || 0,
+        tests_total: 0,
         tests_passed: 0,
         tests_failed: 0,
-        coverage_percent: res.coverage_estimate || 0,
-      });
+        coverage_percent: 0,
+      };
+      
+      setSuites(prev => [newSuite, ...prev]);
       return res;
     },
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['testSuites'] });
-      toast.success(`Generated ${res.tests_total || 'multiple'} tests with ~${res.coverage_estimate || 0}% coverage!`);
+      toast.success('Test suite generated successfully!');
     },
     onError: () => toast.error('Test generation failed. Please try again.'),
   });

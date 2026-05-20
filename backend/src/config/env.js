@@ -2,10 +2,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Check if at least one AI provider is configured
+const hasGemini = !!process.env.GEMINI_API_KEY;
+const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+
+if (!hasGemini && !hasClaude) {
+  console.warn(
+    'WARNING: No AI provider configured. Please set either GEMINI_API_KEY or ANTHROPIC_API_KEY in your .env file'
+  );
+}
+
 const requiredVars = [
   'DATABASE_URL',
   'JWT_SECRET',
-  'ANTHROPIC_API_KEY',
 ];
 
 requiredVars.forEach((varName) => {
@@ -21,6 +30,9 @@ export const env = {
   jwt: {
     secret: process.env.JWT_SECRET,
     expire: process.env.JWT_EXPIRE || '7d',
+  },
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY,
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Loader2, Copy, Check, BookOpen, FileCode, Server,
@@ -76,10 +76,8 @@ export default function Documentation() {
   const generateMutation = useMutation({
     mutationFn: async () => {
       const dt = DOC_TYPES.find(d => d.id === docType);
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: dt.prompt(input),
-      });
-      setOutput(res);
+      const res = await apiClient.agents.run('documentation', dt.prompt(input));
+      setOutput(res.output);
       setIsAnimating(true);
       return res;
     },

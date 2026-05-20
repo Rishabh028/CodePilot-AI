@@ -59,17 +59,17 @@ app.get('/health', asyncHandler(async (req, res) => {
   }
 }));
 
-// API Routes
-app.use('/api', (req, res) => {
-  res.json({ message: 'CodePilot AI API v1.0.0' });
-});
-
-// Agent routes
+// Agent routes (must come before the catch-all /api route)
 app.use('/api/agents', agentRoutes);
 
 // Routes to be implemented
 // app.use('/api/auth', authRoutes);
 // app.use('/api/projects', authMiddleware, projectRoutes);
+
+// API root endpoint (catch-all for /api root only)
+app.get('/api', (req, res) => {
+  res.json({ message: 'CodePilot AI API v1.0.0' });
+});
 
 // 404 handler
 app.use((req, res) => {

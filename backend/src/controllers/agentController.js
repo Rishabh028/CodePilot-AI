@@ -1,4 +1,4 @@
-import { invokeAgent } from '../services/agentService.js';
+import { invokeAgent, getProviderStatus } from '../services/agentService.js';
 import { logInfo, logError } from '../utils/logger.js';
 
 const VALID_AGENTS = [
@@ -37,6 +37,7 @@ export async function runAgent(req, res) {
       agentType,
       output: result.output,
       tokens_used: result.tokens_used,
+      provider: result.provider,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -49,7 +50,10 @@ export async function runAgent(req, res) {
 }
 
 export async function getAgents(req, res) {
+  const status = getProviderStatus();
+  
   return res.json({
+    providerStatus: status,
     agents: [
       {
         type: 'requirements',

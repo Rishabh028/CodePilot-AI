@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -169,94 +169,78 @@ export default function Agents() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [activeRun, setActiveRun] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const queryClient = useQueryClient();
 
   const { data: allRunsData = [] } = useQuery({
     queryKey: ['agentRuns'],
-    queryFn: () => base44.entities.AgentRun.list('-created_date', 50),
+    queryFn: async () => {
+      try {
+        const response = await apiClient.agents.list();
+        return response.agents || [];
+      } catch (err) {
+        console.error('Failed to fetch agents:', err);
+        return [];
+      }
+    },
   });
   const allRuns = Array.isArray(allRunsData) ? allRunsData : [];
 
   const runMutation = useMutation({
     mutationFn: async (prompt) => {
+      if (!selectedAgent) throw new Error('No agent selected');
+      if (!prompt.trim()) throw new Error('Please enter a prompt');
+
       const startTime = Date.now();
-
-      // Create run record immediately
-      const run = await base44.entities.AgentRun.create({
-        agent_type: selectedAgent,
-        status: 'running',
-        input: prompt,
+      setActiveRun({ 
+        status: 'running', 
+        input: prompt, 
+        output: '', 
         tokens_used: 0,
+        duration_ms: 0,
       });
-
-      // Show it immediately in UI
-      setActiveRun({ ...run, status: 'running', input: prompt, output: null, output_files: [] });
       setIsStreaming(false);
 
-      await queryClient.invalidateQueries({ queryKey: ['agentRuns'] });
+      try {
+        // Call the backend API
+        const result = await apiClient.agents.run(selectedAgent, prompt);
 
-      const promptFn = selectedAgent ? AGENT_PROMPTS[selectedAgent] : undefined;
-      const agentName = selectedAgent ? selectedAgent.replace(/_/g, ' ') : 'agent';
-      const fullPrompt = promptFn ? promptFn(prompt) : `You are a ${agentName} AI. ${prompt}`;
+        const duration = Date.now() - startTime;
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: fullPrompt,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            output: { type: 'string', description: 'Full markdown-formatted response' },
-            files: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  path: { type: 'string' },
-                  content: { type: 'string' },
-                  language: { type: 'string' }
-                }
-              }
-            },
-            summary: { type: 'string', description: 'One-sentence summary' },
-          }
-        }
-      });
+        // Create the final run object
+        const finalRun = {
+          status: 'completed',
+          input: prompt,
+          output: result.output || 'Completed successfully.',
+          tokens_used: result.tokens_used || 0,
+          provider: result.provider || 'unknown',
+          duration_ms: duration,
+          agentType: selectedAgent,
+          timestamp: new Date().toISOString(),
+        };
 
-      const duration = Date.now() - startTime;
-      const tokensUsed = Math.floor(fullPrompt.length / 4) + Math.floor((result.output?.length || 0) / 4);
+        // Show streaming animation
+        setIsStreaming(true);
+        setActiveRun(finalRun);
 
-      const updatedRun = await base44.entities.AgentRun.update(run.id, {
-        status: 'completed',
-        output: result.output || result.summary || 'Completed successfully.',
-        output_files: result.files || [],
-        tokens_used: tokensUsed,
-        duration_ms: duration,
-      });
+        // Auto-close streaming animation after delay based on output length
+        setTimeout(() => setIsStreaming(false), Math.min((result.output?.length || 100) * 2, 3000));
 
-      // Show streaming animation
-      const finalRun = { ...run, ...updatedRun, status: 'completed', output: result.output || result.summary || 'Completed.', output_files: result.files || [], tokens_used: tokensUsed };
-      setIsStreaming(true);
-      setActiveRun(finalRun);
-
-      setTimeout(() => setIsStreaming(false), (result.output?.length || 100) * 5 + 500);
-
-      toast.success(`${selectedAgent.replace(/_/g, ' ')} agent completed!`);
-      return finalRun;
-    },
-    onError: async (err) => {
-      toast.error('Agent run failed. Please try again.');
-      if (activeRun?.id) {
-        await base44.entities.AgentRun.update(activeRun.id, {
-          status: 'failed',
-          error: err?.message || 'Unknown error',
-        });
-        setActiveRun(r => r ? { ...r, status: 'failed', error: err?.message } : r);
+        toast.success(`${selectedAgent.replace(/_/g, ' ')} agent completed!`);
+        return finalRun;
+      } catch (error) {
+        const errorMsg = error?.message || 'Agent execution failed';
+        console.error('Agent execution error:', error);
+        throw new Error(errorMsg);
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['agentRuns'] }),
+    onError: (err) => {
+      const errorMsg = err?.message || 'Agent run failed. Please try again.';
+      console.error('Mutation error:', err);
+      toast.error(errorMsg);
+      setActiveRun(r => r ? { ...r, status: 'failed', error: errorMsg } : r);
+    },
   });
 
-  const recentRuns = allRuns.filter(r => r.agent_type === selectedAgent);
+  const recentRuns = []; // Run history from database would go here
   const selectedAgentConfig = AGENTS.find(a => a.type === selectedAgent);
 
   return (

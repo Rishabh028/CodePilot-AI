@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Code2, Play, Sparkles, Copy, Check, FileCode, Wand2,
@@ -73,17 +73,9 @@ export default function CodeStudio() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: buildPrompt(action, language, code),
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            output: { type: 'string', description: 'Generated code or response' },
-            explanation: { type: 'string', description: 'Explanation of what was generated' },
-          }
-        }
-      });
-      const outputText = res?.output || res?.explanation || (typeof res === 'string' ? res : '');
+      const prompt = buildPrompt(action, language, code);
+      const res = await apiClient.agents.run('code_generator', prompt);
+      const outputText = res?.output || '';
       setOutput(outputText);
       setIsAnimating(true);
       return outputText;
