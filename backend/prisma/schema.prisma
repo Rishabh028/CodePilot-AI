@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Authentication Models
+// ============================================
+
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  passwordHash       String
+  firstName          String?
+  lastName           String?
+  avatar             String?
+  bio                String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  // Relations
+  projects           Project[]
+  agents             Agent[]
+  agentRuns          AgentRun[]
+  conversations      Conversation[]
+  codeReviews        CodeReview[]
+  testSuites         TestSuite[]
+  securityIssues     SecurityIssue[]
+  deployments        Deployment[]
+  apiKeys            ApiKey[]
+  subscription       Subscription?
+  auditLogs          AuditLog[]
+
+  @@index([email])
+}
+
+model ApiKey {
+  id                 String     @id @default(cuid())
+  name               String
+  key                String     @unique
+  lastUsedAt         DateTime?
+  createdAt          DateTime   @default(now())
+  expiresAt          DateTime?
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================
+// Project & Repository Models
+// ============================================
+
+model Project {
+  id                 String     @id @default(cuid())
+  name               String
+  description        String?
+  repositoryUrl      String?
+  language           String?    // JavaScript, Python, Go, etc.
+  framework          String?    // React, Django, FastAPI, etc.
+  status             String     @default("active") // active, archived, deleted
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  agents             Agent[]
+  agentRuns          AgentRun[]
+  codeReviews        CodeReview[]
+  testSuites         TestSuite[]
+  securityIssues     SecurityIssue[]
+  deployments        Deployment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ============================================
+// Agent Models
+// ============================================
+
+model Agent {
+  id                 String     @id @default(cuid())
+  name               String
+  type               String     // code-generation, pr-review, test-generation, security-scan, documentation, deployment
+  description        String?
+  systemPrompt       String     // Long text field for SQLite
+  isActive           Boolean    @default(true)
+  version            String     @default("1.0.0")
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId          String?
+  project            Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Relations
+  runs               AgentRun[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([projectId])
+}
+
+model AgentRun {
+  id                 String     @id @default(cuid())
+  status             String     @default("pending") // pending, running, completed, failed
+  input              String     // Long text field for SQLite
+  output             String?    // Long text field for SQLite
+  error              String?    // Long text field for SQLite
+  tokens             Int        @default(0)
+  executionTime      Int?       // milliseconds
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime   @default(now())
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  agentId            String
+  agent              Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Relations
+  conversations      Conversation[]
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// Conversation & Chat Models
+// ============================================
+
+model Conversation {
+  id                 String     @id @default(cuid())
+  message            String     // Long text field for SQLite
+  response           String?    // Long text field for SQLite
+  role               String     // user, assistant
+  createdAt          DateTime   @default(now())
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  agentRunId         String
+  agentRun           AgentRun   @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([agentRunId])
+  @@index([createdAt])
+}
+
+// ============================================
+// Code Review Models
+// ============================================
+
+model CodeReview {
+  id                 String     @id @default(cuid())
+  pullRequestUrl     String
+  pullRequestNumber  String?
+  title              String?
+  description        String?    // Long text field for SQLite
+  code               String?    // Long text field for SQLite
+  review             String     // Long text field for SQLite
+  suggestions        String?    // Long text field for SQLite
+  approved           Boolean    @default(false)
+  status             String     @default("pending") // pending, reviewed, approved, changes-requested
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ============================================
+// Testing Models
+// ============================================
+
+model TestSuite {
+  id                 String     @id @default(cuid())
+  name               String
+  description        String?
+  generatedTests     String?    // Long text field for SQLite
+  testCode           String?    // Long text field for SQLite
+  testOutput         String?    // Long text field for SQLite
+  coverage           Float?     // percentage
+  passed             Int        @default(0)
+  failed             Int        @default(0)
+  skipped            Int        @default(0)
+  duration           Int?       // milliseconds
+  status             String     @default("pending") // pending, running, completed, failed
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ============================================
+// Security Models
+// ============================================
+
+model SecurityIssue {
+  id                 String     @id @default(cuid())
+  title              String
+  severity           String     // critical, high, medium, low
+  description        String     // Long text field for SQLite
+  code               String?    // Long text field for SQLite
+  remediation        String?    // Long text field for SQLite
+  cveBucket          String?    // CVE identifier
+  status             String     @default("open") // open, in-progress, resolved, false-positive
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([severity])
+  @@index([status])
+}
+
+// ============================================
+// Deployment Models
+// ============================================
+
+model Deployment {
+  id                 String     @id @default(cuid())
+  name               String
+  environment        String     // development, staging, production
+  status             String     @default("pending") // pending, deploying, deployed, failed, rolled-back
+  deploymentUrl      String?
+  commitHash         String?
+  logs               String?    // Long text field for SQLite
+  duration           Int?       // milliseconds
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([environment])
+  @@index([status])
+}
+
+// ============================================
+// Billing & Subscription Models
+// ============================================
+
+model BillingPlan {
+  id                 String     @id @default(cuid())
+  name               String     @unique
+  description        String?
+  price              Float
+  currency           String     @default("USD")
+  interval           String     // monthly, yearly
+  maxAgentRuns       Int        @default(0) // 0 = unlimited
+  maxProjects        Int        @default(0) // 0 = unlimited
+  features           String     @default("") // JSON array as string for SQLite
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+
+  subscriptions      Subscription[]
+
+  @@index([isActive])
+}
+
+model Subscription {
+  id                 String     @id @default(cuid())
+  status             String     @default("active") // active, canceled, expired, trial
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userId             String     @unique
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  planId             String
+  plan               BillingPlan @relation(fields: [planId], references: [id])
+
+  @@index([status])
+}
+
+// ============================================
+// Audit & Logging Models
+// ============================================
+
+model AuditLog {
+  id                 String     @id @default(cuid())
+  action             String     // created, updated, deleted, executed, etc.
+  resource           String     // User, Project, Agent, etc.
+  resourceId         String
+  changes            String?    // JSON of what changed - stored as string for SQLite
+  ipAddress          String?
+  userAgent          String?
+  createdAt          DateTime   @default(now())
+
+  userId             String
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}
