@@ -212,11 +212,12 @@ async function callGemini(prompt) {
     // Use the latest available Gemini models
     // Note: Free tier has rate limits; paid tiers are recommended for production
     const modelNames = [
-      'gemini-2.5-flash', // Fast, efficient, good for most tasks
-      'gemini-2.5-pro',   // More powerful for complex tasks
-      'gemini-2.0-flash', // Fallback to older stable model
-      'gemini-1.5-flash', // Standard fallback
-      'gemini-1.5-pro',   // Standard fallback pro
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+      'gemini-1.5-pro-latest',
+      'gemini-pro',
+      'gemini-1.0-pro'
     ];
     
     let result;
