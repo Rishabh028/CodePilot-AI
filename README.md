@@ -6,10 +6,11 @@
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)
 ![React](https://img.shields.io/badge/React-18%2B-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-blue)
 
 ## ✨ Features
 
-### 8 Specialized AI Agents
+### 8 Specialized AI Agents (Powered by Google Gemini 2.5)
 
 1. **Requirements Analyst** 📋 - Generate comprehensive user stories, API specs, DB schemas, architecture
 2. **Code Generator** 🧠 - Generate full-stack production-ready code in multiple languages
@@ -24,19 +25,18 @@
 - ✅ Real-time output streaming via WebSockets
 - ✅ Chat-based agent interface
 - ✅ Multi-language code support
-- ✅ Production-ready security
-- ✅ Scalable architecture
+- ✅ Secure User Authentication (Email/Password & Google OAuth)
+- ✅ Editable User Profiles
+- ✅ Cloud-ready architecture
 
 ## 🏗️ Tech Stack
 
 ### Backend
 - **Runtime**: Node.js 18+
 - **Framework**: Express.js 5.x
-- **Database**: PostgreSQL with Prisma ORM
-- **AI Integration**: Anthropic Claude 3.5 Sonnet
-- **Real-time**: Socket.io
-- **Auth**: JWT + bcryptjs
-- **Logging**: Custom structured logger
+- **Database**: PostgreSQL (Hosted on Neon.tech) with Prisma ORM
+- **AI Integration**: Google Gemini 2.5 Flash
+- **Auth**: JWT + bcryptjs + Google OAuth
 
 ### Frontend
 - **Framework**: React 18 with Vite
@@ -44,58 +44,22 @@
 - **Styling**: Tailwind CSS
 - **State Management**: TanStack React Query
 - **Animations**: Framer Motion
-- **Icons**: Lucide React
 
-### DevOps
-- **Containerization**: Docker & Docker Compose
-- **CI/CD**: GitHub Actions ready
-- **Build Tool**: Vite
+## 🚀 Live Demo Deployment
 
-## Project Structure
+The platform is designed to be easily deployed on free-tier cloud providers:
+- **Frontend:** Vercel (`https://your-app.vercel.app`)
+- **Backend:** Render (`https://your-api.onrender.com`)
+- **Database:** Neon Serverless Postgres (`postgresql://...`)
 
-```
-CodePilot/
-├── frontend/                    # React frontend application
-│   ├── src/
-│   │   ├── api/               # API client setup
-│   │   ├── components/        # React components
-│   │   ├── entities/          # Data models
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── lib/               # Utilities and context
-│   │   ├── pages/             # Page components
-│   │   └── utils/             # Helper functions
-│   ├── Dockerfile             # Frontend container
-│   ├── nginx.conf             # Nginx configuration
-│   └── package.json
-│
-├── backend/                     # Node.js/Express backend
-│   ├── src/
-│   │   ├── config/            # Configuration files
-│   │   ├── controllers/        # Route handlers
-│   │   ├── middleware/         # Express middleware
-│   │   ├── routes/            # API routes
-│   │   ├── services/          # Business logic
-│   │   ├── utils/             # Helper functions
-│   │   └── index.js           # Entry point
-│   ├── prisma/                # Database schema
-│   ├── Dockerfile             # Backend container
-│   └── package.json
-│
-├── docker-compose.yml         # Docker orchestration
-├── .env.local                 # Environment variables
-├── .gitignore                 # Git ignore rules
-└── README.md                  # This file
-```
-
-## 📋 Prerequisites
+## 📋 Local Setup Prerequisites
 
 - Node.js 18.0.0 or higher
 - npm 9.0.0 or higher  
-- PostgreSQL 13+ (for database)
-- Docker & Docker Compose (optional)
-- Anthropic API Key (for AI features)
+- PostgreSQL Database URL (Local or Neon.tech)
+- Google Gemini API Key
 
-## 🚀 Quick Start
+## 🛠️ Quick Start
 
 ### 1. Clone the Repository
 
@@ -106,24 +70,23 @@ cd CodePilot-AI
 
 ### 2. Environment Setup
 
-Create `.env` files:
+Create `.env` files in both backend and frontend directories:
 
-**Backend (.env)**
+**Backend (`backend/.env`)**
 ```bash
 PORT=5000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
-DATABASE_URL=postgresql://user:password@localhost:5432/codepilot
-ANTHROPIC_API_KEY=sk-ant-xxxxx
-JWT_SECRET=your-super-secret-key
-JWT_EXPIRES_IN=7d
+DATABASE_URL=postgresql://your-neon-db-url...
+GEMINI_API_KEY=your_gemini_api_key
+JWT_SECRET=your_super_secret_key
+JWT_EXPIRE=7d
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
 ```
 
-**Frontend (.env)**
+**Frontend (`frontend/.env`)**
 ```bash
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_TOKEN=your_token
-VITE_BASE44_APP_BASE_URL=http://localhost:3000
+VITE_API_URL=http://localhost:5000/api
 ```
 
 ### 3. Install Dependencies
@@ -140,285 +103,45 @@ cd ../frontend && npm install
 
 ```bash
 cd backend
+npx prisma db push
 npx prisma generate
-npx prisma db push --accept-data-loss
 ```
 
 ### 5. Start the Application
 
 **Terminal 1 - Backend**
 ```bash
-cd backend && npm start
-# Server: http://localhost:5000
+cd backend
+npm run dev
+# Server running at: http://localhost:5000
 ```
 
 **Terminal 2 - Frontend**
 ```bash
-cd frontend && npm run dev
-# Frontend: http://localhost:5173
+cd frontend
+npm run dev
+# App running at: http://localhost:5173
 ```
 
-### 6. Docker Setup (Alternative)
+## 🚀 Cloud Deployment Instructions
 
-```bash
-docker-compose up -d
-# Access: http://localhost:3000
-```
+### 1. Database (Neon)
+Create a free project on [Neon.tech](https://neon.tech) and copy your Postgres connection string. Set this as your `DATABASE_URL`. Run `npx prisma db push` from your local machine to create the tables in Neon.
 
-## 📚 API Documentation
+### 2. Backend (Render)
+Create a Web Service on Render, connect your GitHub repo, and set the root directory to `backend`. 
+- **Build Command:** `npm install && npx prisma generate`
+- **Start Command:** `npm run dev`
+Add all environment variables from your `.env` file (except set `NODE_ENV=production`).
 
-### Core Agent Endpoints
+### 3. Frontend (Vercel)
+Import your GitHub repo into Vercel and set the root directory to `frontend`.
+Set the `VITE_API_URL` environment variable to your Render backend URL (e.g., `https://your-api.onrender.com/api`).
 
-**List Available Agents**
-```bash
-GET /api/agents
-```
-
-**Invoke an Agent**
-```bash
-POST /api/agents/run
-Content-Type: application/json
-
-{
-  "agentType": "code_generator",
-  "input": "Create a REST API with Express.js for a todo app"
-}
-```
-
-### Agent Types
-
-- `requirements` - Requirements Analyst
-- `code_generator` - Code Generator  
-- `code_review` - Code Reviewer
-- `security` - Security Scanner
-- `testing` - Test Generator
-- `documentation` - Documentation Writer
-- `deployment` - Deployment Engineer
-- `performance` - Performance Optimizer
-
-## 📁 Project Structure
-
-```
-CodePilot-AI/
-├── backend/
-│   ├── src/
-│   │   ├── config/           # Configuration
-│   │   ├── controllers/      # Controllers
-│   │   ├── services/         # Business logic
-│   │   ├── routes/           # API routes
-│   │   ├── middleware/       # Middleware
-│   │   ├── utils/            # Utilities
-│   │   └── index.js          # Entry point
-│   ├── prisma/               # Database schema
-│   ├── Dockerfile
-│   └── package.json
-│
-├── frontend/
-│   ├── src/
-│   │   ├── api/              # API client
-│   │   ├── components/       # Components
-│   │   ├── pages/            # Pages
-│   │   ├── lib/              # Utilities
-│   │   └── App.jsx
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
-│
-├── docker-compose.yml
-└── README.md
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-See `.env.example` files in backend and frontend directories for all available options.
-
-## 🔐 Security
-
-✅ JWT authentication
-✅ Password hashing
-✅ CORS protection
-✅ Input validation
-✅ SQL injection prevention
-✅ XSS protection
-✅ Secure error handling
-
-## 📊 Database Models
-
-- User
-- Project
-- Agent
-- AgentRun
-- SecurityIssue
-- TestSuite
-- Deployment
-- CodeReview
-
-## 🚀 Deployment
-
-### Vercel
-```bash
-vercel
-```
-
-### Railway
-```bash
-railway up
-```
-
-### Docker
-```bash
-docker-compose up -d
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Open Pull Request
+Update the `FRONTEND_URL` on Render to match your Vercel URL to allow CORS.
 
 ## 📝 License
-
 MIT License - see LICENSE file
 
-## 🙋 Support
-
-- **Issues**: GitHub Issues
-- **Email**: support@codepilot.ai
-- **Docs**: [Full Documentation](./docs)
-
 ---
-
 Made with ❤️ by CodePilot AI Team
-- **Conversation**: Chat history
-- **CodeReview**: PR review results
-- **TestSuite**: Test execution results
-- **SecurityIssue**: Detected vulnerabilities
-- **Deployment**: Deployment records
-- **Subscription**: Billing and subscriptions
-- **AuditLog**: Activity tracking
-
-## Environment Variables
-
-### Backend (.env)
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/codepilot
-JWT_SECRET=your-secret-key
-ANTHROPIC_API_KEY=your-api-key
-PORT=5000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-```
-
-### Frontend (.env)
-```
-VITE_API_URL=http://localhost:5000/api
-VITE_WS_URL=ws://localhost:5000
-```
-
-## Development
-
-### Running Tests
-```bash
-# Backend tests (to be implemented)
-cd backend && npm test
-
-# Frontend tests (to be implemented)
-cd frontend && npm test
-```
-
-### Database Migrations
-```bash
-# Create migration
-npx prisma migrate dev --name migration_name
-
-# Reset database
-npx prisma migrate reset
-
-# View database GUI
-npx prisma studio
-```
-
-### Code Quality
-```bash
-# Lint
-npm run lint
-
-# Format
-npm run format
-```
-
-## Deployment
-
-### Docker Deployment
-```bash
-docker-compose -f docker-compose.yml up -d
-```
-
-### Environment for Production
-Create a `.env.production` file with production values:
-```
-NODE_ENV=production
-DATABASE_URL=<production-db-url>
-JWT_SECRET=<strong-secret-key>
-ANTHROPIC_API_KEY=<api-key>
-FRONTEND_URL=<production-frontend-url>
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-```bash
-# Check if PostgreSQL is running
-docker ps | grep postgres
-
-# View logs
-docker logs codepilot-postgres
-```
-
-### Backend Won't Start
-```bash
-# Check logs
-docker logs codepilot-backend
-
-# Verify environment variables
-docker exec codepilot-backend env | grep DATABASE_URL
-```
-
-### Frontend Can't Connect to API
-- Ensure backend is running: `curl http://localhost:5000/health`
-- Check VITE_API_URL in frontend .env
-- Check CORS settings in backend
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues, questions, or feature requests, please create an issue in the repository.
-
-## Roadmap
-
-- [ ] GitHub integration
-- [ ] GitLab integration
-- [ ] Bitbucket integration
-- [ ] Advanced analytics dashboard
-- [ ] Team collaboration features
-- [ ] Custom agent builder
-- [ ] API webhooks
-- [ ] Mobile app
-- [ ] Self-hosted version
-
----
-
-**CodePilot AI** - Empowering developers with AI-powered software engineering assistance.
