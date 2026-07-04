@@ -209,13 +209,11 @@ async function callGemini(prompt) {
       throw new Error('Google Gemini not configured. Set GEMINI_API_KEY in .env');
     }
 
-    // Use the latest available Gemini models
-    // Note: Free tier has rate limits; paid tiers are recommended for production
     const modelNames = [
       'gemini-1.5-flash',
       'gemini-1.5-flash-latest',
+      'gemini-2.5-flash',
       'gemini-1.5-pro',
-      'gemini-1.5-pro-latest',
       'gemini-pro',
       'gemini-1.0-pro'
     ];
@@ -223,6 +221,7 @@ async function callGemini(prompt) {
     let result;
     let lastError;
     
+    // Attempt fast hardcoded models first
     for (const modelName of modelNames) {
       try {
         const model = googleAI.getGenerativeModel({ model: modelName });
@@ -237,12 +236,47 @@ async function callGemini(prompt) {
         };
       } catch (err) {
         lastError = err;
-        logInfo(`Model ${modelName} not available, trying next...`, { error: err.message });
+        // If it's a 404, we will continue to the dynamic model fetcher.
       }
     }
     
-    // If all models fail
-    throw lastError || new Error('No Gemini models available');
+    // If we reach here, all hardcoded models threw an error (likely 404s).
+    // Let's dynamically query Google's API to see what models they ACTUALLY have access to!
+    logInfo('Hardcoded models failed, attempting dynamic model discovery...');
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${env.gemini.apiKey}`);
+      const data = await response.json();
+      
+      if (data.models && Array.isArray(data.models)) {
+        // Find a model that supports generateContent
+        const validModel = data.models.find(m => 
+          m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent') &&
+          m.name.includes('gemini')
+        );
+        
+        if (validModel) {
+          const modelName = validModel.name.replace('models/', '');
+          logInfo(`Dynamically discovered valid model: ${modelName}`);
+          
+          const model = googleAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          
+          return {
+            output: result.response.text(),
+            tokens_used: 0,
+            provider: 'gemini',
+          };
+        } else {
+          throw new Error(`Your API key is valid, but Google returned 0 models that support text generation. Models returned: ${JSON.stringify(data.models.map(m=>m.name))}`);
+        }
+      } else {
+        throw new Error(`Failed to list models. Response: ${JSON.stringify(data)}`);
+      }
+    } catch (dynamicErr) {
+      logError('Dynamic model discovery failed', dynamicErr);
+      throw dynamicErr;
+    }
+    
   } catch (error) {
     logError('Gemini API error', error);
     throw error;
