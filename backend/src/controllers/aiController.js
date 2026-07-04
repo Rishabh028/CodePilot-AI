@@ -1,4 +1,4 @@
-import { callGenericLLM } from '../services/aiService.js';
+import { callGenericLLM, getAIProviderStatus } from '../services/aiService.js';
 
 export const invokeLLM = async (req, res) => {
   try {
@@ -10,4 +10,8 @@ export const invokeLLM = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message || 'Failed to invoke LLM' });
   }
+};
+
+export const getStatus = (req, res) => {
+  res.json(getAIProviderStatus());
 };
