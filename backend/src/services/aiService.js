@@ -248,27 +248,33 @@ async function callGemini(prompt) {
       const data = await response.json();
       
       if (data.models && Array.isArray(data.models)) {
-        // Find a model that supports generateContent
-        const validModel = data.models.find(m => 
+        // Find all models that support generateContent
+        const validModels = data.models.filter(m => 
           m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent') &&
           m.name.includes('gemini')
         );
         
-        if (validModel) {
-          const modelName = validModel.name.replace('models/', '');
-          logInfo(`Dynamically discovered valid model: ${modelName}`);
-          
-          const model = googleAI.getGenerativeModel({ model: modelName });
-          const result = await model.generateContent(prompt);
-          
-          return {
-            output: result.response.text(),
-            tokens_used: 0,
-            provider: 'gemini',
-          };
-        } else {
-          throw new Error(`Your API key is valid, but Google returned 0 models that support text generation. Models returned: ${JSON.stringify(data.models.map(m=>m.name))}`);
+        let dynamicLastError;
+        for (const validModel of validModels) {
+          try {
+            const modelName = validModel.name.replace('models/', '');
+            logInfo(`Dynamically testing model: ${modelName}`);
+            
+            const model = googleAI.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(prompt);
+            
+            logInfo(`Successfully generated content with dynamic model: ${modelName}`);
+            return {
+              output: result.response.text(),
+              tokens_used: 0,
+              provider: 'gemini',
+            };
+          } catch (modelErr) {
+            logInfo(`Dynamic model ${validModel.name} failed`, { error: modelErr.message });
+            dynamicLastError = modelErr;
+          }
         }
+        throw dynamicLastError || new Error(`Your API key is valid, but all ${validModels.length} models failed (you might have hit your rate limit for all of them).`);
       } else {
         throw new Error(`Failed to list models. Response: ${JSON.stringify(data)}`);
       }
