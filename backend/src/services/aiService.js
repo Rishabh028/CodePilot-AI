@@ -215,6 +215,8 @@ async function callGemini(prompt) {
       'gemini-2.5-flash', // Fast, efficient, good for most tasks
       'gemini-2.5-pro',   // More powerful for complex tasks
       'gemini-2.0-flash', // Fallback to older stable model
+      'gemini-1.5-flash', // Standard fallback
+      'gemini-1.5-pro',   // Standard fallback pro
     ];
     
     let result;
