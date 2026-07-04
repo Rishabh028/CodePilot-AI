@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Bot, Code2, Shield, TestTube, FileText, Rocket, Sparkles,
@@ -62,13 +62,13 @@ export default function ProjectDetail() {
 
   const { data: project, isLoading: loadingProject } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => base44.entities.Project.filter({ id: projectId }).then(r => r[0]),
+    queryFn: () => apiClient.projects.get(projectId),
     enabled: !!projectId,
   });
 
   const { data: agentRunsData = [] } = useQuery({
     queryKey: ['agentRuns', projectId],
-    queryFn: () => base44.entities.AgentRun.filter({ project_id: projectId }, '-created_date'),
+    queryFn: () => apiClient.agentRuns.list(projectId),
     enabled: !!projectId,
     refetchInterval: activeRun?.status === 'running' ? 2000 : false,
   });
@@ -78,7 +78,7 @@ export default function ProjectDetail() {
     mutationFn: async (prompt) => {
       const startTime = Date.now();
 
-      const run = await base44.entities.AgentRun.create({
+      const run = await apiClient.agentRuns.create({
         project_id: projectId,
         agent_type: activeAgentType,
         status: 'running',
@@ -92,44 +92,71 @@ export default function ProjectDetail() {
 
       const fullPrompt = buildPrompt(activeAgentType, { ...project, requirements: project?.requirements || prompt });
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: fullPrompt,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            output: { type: 'string', description: 'Full markdown-formatted response with all details' },
-            files: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  path: { type: 'string' },
-                  content: { type: 'string' },
-                  language: { type: 'string' }
+      const resultResponse = await apiClient.ai.invokeLLM(fullPrompt);
+      const result = resultResponse; // Or adjust depending on how backend sends it, backend just sends text output currently or json. Wait, our aiService.js sends `{ output: text, tokens_used: 0, provider: '...' }`. So result.output contains JSON string if we asked for JSON. Actually, `InvokeLLM` backend just sends whatever Claude/Gemini generated. We need to parse it. Let's just use it as is for now and assume the prompt is well-formed.
+      
+        let parsedResult = { output: result.output, files: [] };
+        try {
+          const jsonMatch = result.output.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+          let rawJsonStr = jsonMatch ? jsonMatch[1] : result.output;
+          // try to parse even if no markdown block
+          if (!rawJsonStr.trim().startsWith('{')) {
+            const startIdx = rawJsonStr.indexOf('{');
+            const endIdx = rawJsonStr.lastIndexOf('}');
+            if (startIdx !== -1 && endIdx !== -1) {
+              rawJsonStr = rawJsonStr.substring(startIdx, endIdx + 1);
+            }
+          }
+          parsedResult = JSON.parse(rawJsonStr);
+        } catch (e) {
+          parsedResult.output = result.output;
+        }
+        
+        let markdownOutput = parsedResult.summary || parsedResult.output || 'Completed.';
+        
+        // Append other fields (like issues, vulnerabilities, requirements) to the markdown output
+        const ignoreKeys = ['summary', 'output', 'files'];
+        for (const [key, value] of Object.entries(parsedResult)) {
+          if (!ignoreKeys.includes(key)) {
+            markdownOutput += `\n\n### ${key.charAt(0).toUpperCase() + key.slice(1)}\n`;
+            if (Array.isArray(value)) {
+              value.forEach(item => {
+                if (typeof item === 'object') {
+                  markdownOutput += `- **${item.title || item.type || item.issue || item.severity || 'Item'}**:\n`;
+                  for (const [k, v] of Object.entries(item)) {
+                     if (k !== 'title' && k !== 'type' && k !== 'issue' && k !== 'severity') {
+                       markdownOutput += `  - **${k}**: ${v}\n`;
+                     }
+                  }
+                } else {
+                  markdownOutput += `- ${item}\n`;
                 }
-              }
-            },
-            summary: { type: 'string' }
+              });
+            } else if (typeof value === 'object') {
+              markdownOutput += "```json\n" + JSON.stringify(value, null, 2) + "\n```";
+            } else {
+              markdownOutput += `${value}`;
+            }
           }
         }
-      });
+        
+        const actualResult = { ...parsedResult, output: markdownOutput };
 
       const duration = Date.now() - startTime;
-      const tokensUsed = Math.floor(fullPrompt.length / 4) + Math.floor((result.output?.length || 0) / 4);
+      const tokensUsed = Math.floor(fullPrompt.length / 4) + Math.floor((actualResult.output?.length || 0) / 4);
 
-      await base44.entities.AgentRun.update(run.id, {
+      await apiClient.agentRuns.update(run.id, {
         status: 'completed',
-        output: result.output || result.summary || 'Completed.',
-        output_files: result.files || [],
+        output: actualResult.output,
+        output_files: actualResult.files || [],
         tokens_used: tokensUsed,
         duration_ms: duration,
       });
 
       // If code generator, save files to project too
-      if (activeAgentType === 'code_generator' && result.files?.length > 0) {
-        await base44.entities.Project.update(projectId, {
-          generated_files: result.files,
+      if (activeAgentType === 'code_generator' && actualResult.files?.length > 0) {
+        await apiClient.projects.update(projectId, {
+          generated_files: actualResult.files,
           status: 'in_progress',
         });
       }
@@ -137,15 +164,15 @@ export default function ProjectDetail() {
       const finalRun = {
         ...run,
         status: 'completed',
-        output: result.output || result.summary || 'Completed.',
-        output_files: result.files || [],
+        output: actualResult.output,
+        output_files: actualResult.files || [],
         tokens_used: tokensUsed,
         duration_ms: duration,
       };
 
       setIsStreaming(true);
       setActiveRun(finalRun);
-      setTimeout(() => setIsStreaming(false), Math.min((result.output?.length || 100) * 5 + 500, 8000));
+      setTimeout(() => setIsStreaming(false), Math.min((actualResult.output?.length || 100) * 5 + 500, 8000));
 
       toast.success(`${activeAgentType.replace(/_/g, ' ')} agent completed!`);
       return finalRun;
@@ -153,7 +180,7 @@ export default function ProjectDetail() {
     onError: async (err) => {
       toast.error('Agent run failed. Please try again.');
       if (activeRun?.id) {
-        await base44.entities.AgentRun.update(activeRun.id, { status: 'failed', error: err?.message });
+        await apiClient.agentRuns.update(activeRun.id, { status: 'failed', error: err?.message });
         setActiveRun(r => r ? { ...r, status: 'failed', error: err?.message } : r);
       }
     },
@@ -172,7 +199,7 @@ export default function ProjectDetail() {
         setActiveAgentType(agent.type);
 
         const startTime = Date.now();
-        const run = await base44.entities.AgentRun.create({
+        const run = await apiClient.agentRuns.create({
           project_id: projectId,
           agent_type: agent.type,
           status: 'running',
@@ -183,34 +210,69 @@ export default function ProjectDetail() {
         setActiveRun({ ...run, status: 'running', input: buildPrompt(agent.type, project), output: null, output_files: [] });
 
         const fullPrompt = buildPrompt(agent.type, project);
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: fullPrompt,
-          response_json_schema: {
-            type: 'object',
-            properties: {
-              output: { type: 'string' },
-              files: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, path: { type: 'string' }, content: { type: 'string' }, language: { type: 'string' } } } },
-              summary: { type: 'string' }
+        const resultResponse = await apiClient.ai.invokeLLM(fullPrompt);
+        const result = resultResponse;
+        
+        let parsedResult = { output: result.output, files: [] };
+        try {
+          const jsonMatch = result.output.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+          let rawJsonStr = jsonMatch ? jsonMatch[1] : result.output;
+          if (!rawJsonStr.trim().startsWith('{')) {
+            const startIdx = rawJsonStr.indexOf('{');
+            const endIdx = rawJsonStr.lastIndexOf('}');
+            if (startIdx !== -1 && endIdx !== -1) {
+              rawJsonStr = rawJsonStr.substring(startIdx, endIdx + 1);
             }
           }
-        });
+          parsedResult = JSON.parse(rawJsonStr);
+        } catch (e) {
+          parsedResult.output = result.output;
+        }
+        
+        let markdownOutput = parsedResult.summary || parsedResult.output || 'Completed.';
+        const ignoreKeys = ['summary', 'output', 'files'];
+        for (const [key, value] of Object.entries(parsedResult)) {
+          if (!ignoreKeys.includes(key)) {
+            markdownOutput += `\n\n### ${key.charAt(0).toUpperCase() + key.slice(1)}\n`;
+            if (Array.isArray(value)) {
+              value.forEach(item => {
+                if (typeof item === 'object') {
+                  markdownOutput += `- **${item.title || item.type || item.issue || item.severity || 'Item'}**:\n`;
+                  for (const [k, v] of Object.entries(item)) {
+                     if (k !== 'title' && k !== 'type' && k !== 'issue' && k !== 'severity') {
+                       markdownOutput += `  - **${k}**: ${v}\n`;
+                     }
+                  }
+                } else {
+                  markdownOutput += `- ${item}\n`;
+                }
+              });
+            } else if (typeof value === 'object') {
+              markdownOutput += "```json\n" + JSON.stringify(value, null, 2) + "\n```";
+            } else {
+              markdownOutput += `${value}`;
+            }
+          }
+        }
+        
+        const actualResult = { ...parsedResult, output: markdownOutput };
 
         const duration = Date.now() - startTime;
-        const tokensUsed = Math.floor(fullPrompt.length / 4) + Math.floor((result.output?.length || 0) / 4);
+        const tokensUsed = Math.floor(fullPrompt.length / 4) + Math.floor((actualResult.output?.length || 0) / 4);
 
-        await base44.entities.AgentRun.update(run.id, {
+        await apiClient.agentRuns.update(run.id, {
           status: 'completed',
-          output: result.output || result.summary || 'Completed.',
-          output_files: result.files || [],
+          output: actualResult.output,
+          output_files: actualResult.files || [],
           tokens_used: tokensUsed,
           duration_ms: duration,
         });
 
-        if (agent.type === 'code_generator' && result.files?.length > 0) {
-          await base44.entities.Project.update(projectId, { generated_files: result.files, status: 'in_progress' });
+        if (agent.type === 'code_generator' && actualResult.files?.length > 0) {
+          await apiClient.projects.update(projectId, { generated_files: actualResult.files, status: 'in_progress' });
         }
 
-        const finalRun = { ...run, status: 'completed', output: result.output || result.summary || 'Completed.', output_files: result.files || [], tokens_used: tokensUsed };
+        const finalRun = { ...run, status: 'completed', output: actualResult.output, output_files: actualResult.files || [], tokens_used: tokensUsed };
         setActiveRun(finalRun);
         await queryClient.invalidateQueries({ queryKey: ['agentRuns', projectId] });
       }

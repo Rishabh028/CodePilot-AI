@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Menu, X } from 'lucide-react';
+import { Zap, Menu, X, User as UserIcon } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 const NAV_LINKS = [
   { label: 'Features', to: '/features' },
@@ -11,6 +12,7 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAuthenticated, user } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -50,17 +52,38 @@ export default function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Link to="/auth">
-            <button className="text-sm text-[#94A3B8] hover:text-white transition-colors px-3 py-1.5">Sign In</button>
-          </Link>
-          <Link to="/auth">
-            <motion.button
-              whileHover={{ scale: 1.04, boxShadow: '0 0 20px rgba(139,92,246,0.4)' }}
-              whileTap={{ scale: 0.97 }}
-              className="text-sm font-semibold px-5 py-2 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] text-white">
-              Start Free
-            </motion.button>
-          </Link>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <Link to="/dashboard">
+                <button className="text-sm font-semibold px-5 py-2 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] text-white hover:opacity-90 transition-opacity">
+                  Dashboard
+                </button>
+              </Link>
+              <Link to="/settings" title="Profile Settings">
+                <button className="w-9 h-9 flex items-center justify-center rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] hover:bg-[#8B5CF6]/30 transition-colors border border-[#8B5CF6]/30">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-4 h-4" />
+                  )}
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              <Link to="/auth">
+                <button className="text-sm text-[#94A3B8] hover:text-white transition-colors px-3 py-1.5">Sign In</button>
+              </Link>
+              <Link to="/auth">
+                <motion.button
+                  whileHover={{ scale: 1.04, boxShadow: '0 0 20px rgba(139,92,246,0.4)' }}
+                  whileTap={{ scale: 0.97 }}
+                  className="text-sm font-semibold px-5 py-2 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] text-white">
+                  Start Free
+                </motion.button>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile */}
@@ -84,12 +107,25 @@ export default function Navbar() {
               </Link>
             ))}
             <div className="flex gap-3 mt-3">
-              <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
-                <button className="w-full py-2 text-sm border border-purple-500/30 rounded-lg text-white hover:bg-purple-500/10 transition-colors">Sign In</button>
-              </Link>
-              <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
-                <button className="w-full py-2 text-sm bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] rounded-lg text-white font-semibold">Start Free</button>
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link to="/dashboard" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <button className="w-full py-2 text-sm bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] rounded-lg text-white font-semibold">Dashboard</button>
+                  </Link>
+                  <Link to="/settings" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <button className="w-full py-2 text-sm border border-purple-500/30 rounded-lg text-white hover:bg-purple-500/10 transition-colors">Profile</button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <button className="w-full py-2 text-sm border border-purple-500/30 rounded-lg text-white hover:bg-purple-500/10 transition-colors">Sign In</button>
+                  </Link>
+                  <Link to="/auth" className="flex-1" onClick={() => setMobileOpen(false)}>
+                    <button className="w-full py-2 text-sm bg-gradient-to-r from-[#8B5CF6] to-[#3B82F6] rounded-lg text-white font-semibold">Start Free</button>
+                  </Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}

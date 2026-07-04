@@ -15,6 +15,9 @@ export default defineConfig({
     },
   },
   server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+    },
     middlewareMode: false,
     port: 3000,
     strictPort: false,

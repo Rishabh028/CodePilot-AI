@@ -10,8 +10,14 @@ import { getPrismaClient, disconnectPrisma } from './config/database.js';
 
 // Import routes
 import agentRoutes from './routes/agents.js';
-// import authRoutes from './routes/auth.js';
-// import projectRoutes from './routes/projects.js';
+import authRoutes from './routes/auth.js';
+import projectRoutes from './routes/projects.js';
+import agentRunRoutes from './routes/agentRuns.js';
+import securityRoutes from './routes/security.js';
+import deploymentRoutes from './routes/deployments.js';
+import testingRoutes from './routes/testing.js';
+import codeReviewRoutes from './routes/codeReview.js';
+import aiRoutes from './routes/ai.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -62,9 +68,15 @@ app.get('/health', asyncHandler(async (req, res) => {
 // Agent routes (must come before the catch-all /api route)
 app.use('/api/agents', agentRoutes);
 
-// Routes to be implemented
-// app.use('/api/auth', authRoutes);
-// app.use('/api/projects', authMiddleware, projectRoutes);
+// Custom Entity & Integration Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/agent-runs', agentRunRoutes);
+app.use('/api/security-issues', securityRoutes);
+app.use('/api/deployments', deploymentRoutes);
+app.use('/api/test-suites', testingRoutes);
+app.use('/api/code-reviews', codeReviewRoutes);
+app.use('/api/ai', aiRoutes);
 
 // API root endpoint (catch-all for /api root only)
 app.get('/api', (req, res) => {

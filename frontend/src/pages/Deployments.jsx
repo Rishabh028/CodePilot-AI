@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion } from 'framer-motion';
 import {
   Rocket, Globe, Server, Container, Cloud, CheckCircle2,
@@ -35,12 +35,12 @@ export default function Deployments() {
 
   const { data: deploymentsData = [] } = useQuery({
     queryKey: ['deployments'],
-    queryFn: () => base44.entities.Deployment.list('-created_date'),
+    queryFn: () => apiClient.deployments.list(),
   });
 
   const { data: projectsData = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => apiClient.projects.list(),
   });
 
   const deployments = Array.isArray(deploymentsData) ? deploymentsData : [];
@@ -48,7 +48,7 @@ export default function Deployments() {
 
   const deployMutation = useMutation({
     mutationFn: async () => {
-      const dep = await base44.entities.Deployment.create({
+      const dep = await apiClient.deployments.create({
         project_id: projectId,
         target: target,
         status: 'building',
@@ -58,7 +58,7 @@ export default function Deployments() {
 
       // Simulate deployment
       setTimeout(async () => {
-        await base44.entities.Deployment.update(dep.id, {
+        await apiClient.deployments.update(dep.id, {
           status: 'live',
           url: `https://${projects.find(p => p.id === projectId)?.name?.toLowerCase().replace(/\s+/g, '-') || 'app'}.${target}.app`,
         });

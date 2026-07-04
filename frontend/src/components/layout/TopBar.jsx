@@ -27,13 +27,11 @@ export default function TopBar({ collapsed, setCollapsed }) {
           <Bell className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={() => logout()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          title={user?.email}
-        >
-          <User className="w-4 h-4" />
-        </button>
+        <Link to="/settings" title={user?.email}>
+          <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+            <User className="w-4 h-4" />
+          </button>
+        </Link>
       </div>
     </header>
   );

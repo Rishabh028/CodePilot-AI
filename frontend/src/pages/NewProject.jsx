@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Rocket, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export default function NewProject() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Project.create(data),
+    mutationFn: (data) => apiClient.projects.create(data),
     onSuccess: (project) => {
       toast.success('Project created!');
       navigate(`/projects/${project.id}`);
@@ -31,6 +31,7 @@ export default function NewProject() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('NewProject submit - token:', localStorage.getItem('codepilot_token'));
     createMutation.mutate({ ...form, status: 'planning' });
   };
 

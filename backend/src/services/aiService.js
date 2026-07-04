@@ -32,7 +32,13 @@ Generate:
 9. Risk assessment
 10. Success metrics
 
-Format everything clearly with headers, code blocks for technical content.`,
+Format everything clearly with headers, code blocks for technical content.
+
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Executive summary...",
+  "requirements": "Detailed markdown of all generated requirements"
+}`,
 
   code_generator: (p) => `You are an elite Full-Stack Code Generator AI. Generate production-ready code.
 
@@ -49,7 +55,15 @@ Generate complete, working code including:
 8. Environment variables template (.env.example)
 9. README with setup instructions
 
-Use TypeScript/JavaScript, modern patterns, proper error handling. Provide actual code, not placeholders.`,
+Use TypeScript/JavaScript, modern patterns, proper error handling. Provide actual code, not placeholders.
+
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Detailed explanation of the code generated...",
+  "files": [
+    { "name": "filename.js", "path": "src/filename.js", "language": "javascript", "content": "actual code..." }
+  ]
+}`,
 
   code_review: (p) => `You are an expert Code Reviewer AI. Perform a thorough review.
 
@@ -65,7 +79,13 @@ Analyze and report:
 7. **Specific Fixes** — Code examples for each issue
 8. **Recommendations** — Architecture improvements
 
-For each issue: file path, line number (if applicable), severity, and fix.`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Detailed overall review summary...",
+  "issues": [
+    { "severity": "High", "file": "path", "description": "issue description", "fix": "code fix" }
+  ]
+}`,
 
   security: (p) => `You are a Security Analyst AI. Conduct a thorough security audit.
 
@@ -83,7 +103,13 @@ Check and report:
 9. **Rate Limiting** and DoS risks
 10. **Auto-fix code snippets** for each vulnerability
 
-Format with severity levels: CRITICAL / HIGH / MEDIUM / LOW / INFO`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Detailed security audit summary...",
+  "vulnerabilities": [
+    { "severity": "CRITICAL", "type": "SQL Injection", "description": "...", "remediation": "..." }
+  ]
+}`,
 
   testing: (p) => `You are a Testing Expert AI. Generate comprehensive test suites.
 
@@ -97,12 +123,13 @@ Generate:
 5. **Test Data Factories** — Fixtures and seeders
 6. **Coverage Configuration** — vitest/jest config for 90%+
 
-Use Vitest syntax. Include:
-- Happy path tests
-- Error case tests  
-- Edge cases (empty, null, overflow)
-- Async/await patterns
-- Mock implementations`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Explanation of the testing strategy...",
+  "files": [
+    { "name": "test_file.spec.js", "path": "tests/test_file.spec.js", "language": "javascript", "content": "actual test code..." }
+  ]
+}`,
 
   documentation: (p) => `You are a Technical Writer AI. Generate production-quality documentation.
 
@@ -117,7 +144,13 @@ Generate:
 6. **Changelog Template** — CHANGELOG.md structure
 7. **Code Comments** — JSDoc/TSDoc examples for key functions
 
-Format all docs in proper Markdown.`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Summary of generated documentation...",
+  "files": [
+    { "name": "README.md", "path": "README.md", "language": "markdown", "content": "..." }
+  ]
+}`,
 
   deployment: (p) => `You are a DevOps Engineer AI. Generate complete deployment infrastructure.
 
@@ -134,7 +167,13 @@ Generate all files:
 8. **Health check endpoints** — /health, /ready implementations
 9. **Monitoring setup** — Prometheus metrics, logging config
 
-Use best practices: non-root user, health checks, secrets management.`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Deployment strategy summary...",
+  "files": [
+    { "name": "Dockerfile", "path": "Dockerfile", "language": "dockerfile", "content": "..." }
+  ]
+}`,
 
   performance: (p) => `You are a Performance Engineering AI. Analyze and optimize for maximum performance.
 
@@ -152,7 +191,13 @@ Analyze and provide:
 9. **Benchmark Results** — Expected improvements with changes
 10. **Implementation Roadmap** — Priority order of optimizations
 
-Provide specific code examples for each optimization.`,
+CRITICAL INSTRUCTION: You MUST format your ENTIRE response as a SINGLE valid JSON object enclosed in a \`\`\`json block. The JSON object must match this schema:
+{
+  "summary": "Performance audit summary...",
+  "optimizations": [
+    { "category": "Database", "issue": "N+1 query", "recommendation": "Use eager loading", "code": "..." }
+  ]
+}`,
 };
 
 /**
@@ -167,9 +212,9 @@ async function callGemini(prompt) {
     // Use the latest available Gemini models
     // Note: Free tier has rate limits; paid tiers are recommended for production
     const modelNames = [
-      'gemini-1.5-flash', // Fast, efficient, good for most tasks
-      'gemini-1.5-pro',   // More powerful for complex tasks
-      'gemini-pro',       // Fallback to older stable model
+      'gemini-2.5-flash', // Fast, efficient, good for most tasks
+      'gemini-2.5-pro',   // More powerful for complex tasks
+      'gemini-2.0-flash', // Fallback to older stable model
     ];
     
     let result;
@@ -178,8 +223,8 @@ async function callGemini(prompt) {
     for (const modelName of modelNames) {
       try {
         const model = googleAI.getGenerativeModel({ model: modelName });
-        const response = await model.generateContent(prompt);
-        const text = response.text();
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
         
         logInfo(`Gemini API success with model: ${modelName}`);
         return {
@@ -257,18 +302,17 @@ export async function invokeAgent(agentType, input) {
         result = await callGemini(fullPrompt);
       } catch (error) {
         lastError = error;
-        logError('Gemini failed, trying Claude fallback', error);
+        logError('Gemini failed', error);
         if (anthropicClient) {
           try {
             result = await callClaude(fullPrompt);
           } catch (claudeError) {
             lastError = claudeError;
-            logError('Claude failed, trying mock fallback', claudeError);
-            result = await callMockAI(agentType, input);
+            logError('Claude failed', claudeError);
+            throw claudeError;
           }
         } else {
-          logError('No Claude configured, trying mock fallback');
-          result = await callMockAI(agentType, input);
+          throw error;
         }
       }
     } else if (PRIMARY_PROVIDER === 'claude') {
@@ -276,18 +320,17 @@ export async function invokeAgent(agentType, input) {
         result = await callClaude(fullPrompt);
       } catch (error) {
         lastError = error;
-        logError('Claude failed, trying Gemini fallback', error);
+        logError('Claude failed', error);
         if (googleAI) {
           try {
             result = await callGemini(fullPrompt);
           } catch (geminiError) {
             lastError = geminiError;
-            logError('Gemini failed, trying mock fallback', geminiError);
-            result = await callMockAI(agentType, input);
+            logError('Gemini failed', geminiError);
+            throw geminiError;
           }
         } else {
-          logError('No Gemini configured, trying mock fallback');
-          result = await callMockAI(agentType, input);
+          throw error;
         }
       }
     } else {
@@ -304,6 +347,26 @@ export async function invokeAgent(agentType, input) {
     };
   } catch (error) {
     logError(`Agent invocation failed: ${agentType}`, error);
+    throw error;
+  }
+}
+
+/**
+ * Generic LLM invocation
+ */
+export async function callGenericLLM(prompt) {
+  try {
+    let result;
+    if (PRIMARY_PROVIDER === 'gemini') {
+      result = await callGemini(prompt);
+    } else if (PRIMARY_PROVIDER === 'claude') {
+      result = await callClaude(prompt);
+    } else {
+      result = await callMockAI('generic', prompt);
+    }
+    return result;
+  } catch (error) {
+    logError('Generic LLM invocation failed', error);
     throw error;
   }
 }

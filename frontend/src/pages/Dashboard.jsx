@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion } from 'framer-motion';
 import {
   FolderKanban, Zap, Bot, Shield, TrendingUp, ArrowRight,
@@ -41,10 +41,10 @@ const RUN_STATUS_CONFIG = {
 };
 
 export default function Dashboard() {
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
-  const { data: projectsData = [] } = useQuery({ queryKey: ['projects'], queryFn: () => base44.entities.Project.list('-created_date', 10) });
-  const { data: agentRunsData = [] } = useQuery({ queryKey: ['agentRuns'], queryFn: () => base44.entities.AgentRun.list('-created_date', 20) });
-  const { data: securityIssuesData = [] } = useQuery({ queryKey: ['securityIssues'], queryFn: () => base44.entities.SecurityIssue.filter({ status: 'open' }) });
+  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => apiClient.auth.me() });
+  const { data: projectsData = [] } = useQuery({ queryKey: ['projects'], queryFn: () => apiClient.projects.list() });
+  const { data: agentRunsData = [] } = useQuery({ queryKey: ['agentRuns'], queryFn: () => apiClient.agentRuns.list() });
+  const { data: securityIssuesData = [] } = useQuery({ queryKey: ['securityIssues'], queryFn: () => apiClient.securityIssues.list() });
 
   const projects = Array.isArray(projectsData) ? projectsData : [];
   const agentRuns = Array.isArray(agentRunsData) ? agentRunsData : [];

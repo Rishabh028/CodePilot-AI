@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, FolderKanban, MoreVertical, Trash2, ExternalLink, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,12 @@ export default function Projects() {
 
   const { data: projectsData = [], isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list('-created_date'),
+    queryFn: () => apiClient.projects.list(),
   });
   const projects = Array.isArray(projectsData) ? projectsData : [];
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Project.delete(id),
+    mutationFn: (id) => apiClient.projects.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('Project deleted');
