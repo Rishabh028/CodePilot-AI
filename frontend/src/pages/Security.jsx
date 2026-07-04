@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, AlertTriangle, CheckCircle2, Info, Loader2,
@@ -104,42 +104,30 @@ export default function Security() {
 
   const { data: issuesData = [] } = useQuery({
     queryKey: ['securityIssues'],
-    queryFn: () => base44.entities.SecurityIssue.list('-created_date'),
+    queryFn: () => apiClient.securityIssues.list(),
   });
   const issues = Array.isArray(issuesData) ? issuesData : [];
 
   const scanMutation = useMutation({
     mutationFn: async () => {
       setScanResult('scanning');
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a security expert. Perform a comprehensive security audit on this code.\n\nCode:\n${code}\n\nFind ALL security vulnerabilities including:\n- SQL Injection (show exact vulnerable lines)\n- XSS (stored, reflected, DOM)\n- CSRF vulnerabilities\n- Authentication/Authorization issues\n- Hardcoded secrets or credentials\n- Insecure configurations (CORS, headers, etc.)\n- Rate limiting missing\n- Input validation issues\n- Dependency vulnerabilities\n\nFor each issue provide: severity (critical/high/medium/low/info), category, description, file_path (if determinable), line_number (if determinable), recommendation, and auto_fix code.`,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            summary: { type: 'string' },
-            issues: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  title: { type: 'string' },
-                  severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low', 'info'] },
-                  category: { type: 'string' },
-                  file_path: { type: 'string' },
-                  line_number: { type: 'number' },
-                  description: { type: 'string' },
-                  recommendation: { type: 'string' },
-                  auto_fix: { type: 'string' },
-                }
-              }
-            }
-          }
-        }
-      });
+      const prompt = `You are a security expert. Perform a comprehensive security audit on this code.\n\nCode:\n${code}\n\nFind ALL security vulnerabilities including:\n- SQL Injection (show exact vulnerable lines)\n- XSS (stored, reflected, DOM)\n- CSRF vulnerabilities\n- Authentication/Authorization issues\n- Hardcoded secrets or credentials\n- Insecure configurations (CORS, headers, etc.)\n- Rate limiting missing\n- Input validation issues\n- Dependency vulnerabilities\n\nFor each issue provide: severity (critical/high/medium/low/info), category, description, file_path (if determinable), line_number (if determinable), recommendation, and auto_fix code.\n\nPlease return JSON in the format: { "summary": "...", "issues": [ { "title": "...", "severity": "...", "category": "...", "description": "...", "recommendation": "...", "auto_fix": "..." } ] }`;
+      
+      const resResponse = await apiClient.ai.invokeLLM(prompt);
+      const resultOutput = resResponse.output;
+      
+      let res = { issues: [] };
+      try {
+        const jsonMatch = resultOutput.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonMatch) res = JSON.parse(jsonMatch[1]);
+        else res = JSON.parse(resultOutput);
+      } catch (e) {
+        // Fallback or empty issues
+      }
 
       const issuesList = res?.issues || [];
       for (const issue of issuesList) {
-        await base44.entities.SecurityIssue.create({ ...issue, status: 'open' });
+        await apiClient.securityIssues.create({ ...issue, status: 'open' });
       }
       setScanResult(res);
       return res;
@@ -161,12 +149,12 @@ export default function Security() {
   });
 
   const resolveMutation = useMutation({
-    mutationFn: (id) => base44.entities.SecurityIssue.update(id, { status: 'resolved' }),
+    mutationFn: (id) => apiClient.securityIssues.update(id, { status: 'resolved' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['securityIssues'] }); toast.success('Issue marked as resolved'); },
   });
 
   const dismissMutation = useMutation({
-    mutationFn: (id) => base44.entities.SecurityIssue.update(id, { status: 'dismissed' }),
+    mutationFn: (id) => apiClient.securityIssues.update(id, { status: 'dismissed' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['securityIssues'] }); },
   });
 

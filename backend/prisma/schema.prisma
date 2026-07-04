@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -70,6 +70,8 @@ model Project {
 
   userId             String
   user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  generatedFiles     String?    // JSON array of generated files for SQLite
 
   // Relations
   agents             Agent[]

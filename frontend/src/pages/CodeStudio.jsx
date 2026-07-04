@@ -74,7 +74,7 @@ export default function CodeStudio() {
   const generateMutation = useMutation({
     mutationFn: async () => {
       const prompt = buildPrompt(action, language, code);
-      const res = await apiClient.agents.run('code_generator', prompt);
+      const res = await apiClient.ai.invokeLLM(prompt);
       const outputText = res?.output || '';
       setOutput(outputText);
       setIsAnimating(true);

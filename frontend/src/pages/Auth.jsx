@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
+import { useAuth } from '@/lib/AuthContext';
+import { useGoogleLogin } from '@react-oauth/google';
 import {
   Zap, Eye, EyeOff, Mail, Lock, User, ArrowRight,
   Chrome, Sparkles, Shield, Code2, Rocket, CheckCircle2, AlertCircle, Loader2
@@ -30,10 +32,27 @@ export default function Auth() {
     setError('');
   };
 
-  const handleGoogleLogin = () => {
-    setGoogleLoading(true);
-    base44.auth.loginWithProvider('google', '/dashboard');
+  const { checkUserAuth } = useAuth();
+
+  const handleGoogleSuccess = async (tokenResponse) => {
+    try {
+      setGoogleLoading(true);
+      setError('');
+      const response = await apiClient.auth.googleAuth(tokenResponse.access_token);
+      apiClient.setToken(response.accessToken);
+      await checkUserAuth();
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err?.message || 'Google login failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => setError('Google login failed.'),
+  });
 
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -41,7 +60,9 @@ export default function Auth() {
     setLoading(true);
     setError('');
     try {
-      await base44.auth.loginViaEmailPassword(form.email, form.password);
+      const response = await apiClient.auth.login(form.email, form.password);
+      apiClient.setToken(response.accessToken);
+      await checkUserAuth();
       navigate('/dashboard');
     } catch (err) {
       setError(err?.message || 'Invalid email or password. Please try again.');
@@ -58,8 +79,8 @@ export default function Auth() {
     setLoading(true);
     setError('');
     try {
-      await base44.auth.signupViaEmailPassword(form.email, form.password, form.name);
-      setSuccess('Account created! Please check your email to verify your account.');
+      await apiClient.auth.register(form.email, form.password, form.name, '');
+      setSuccess('Account created! You can now sign in.');
       setTimeout(() => setTab('signin'), 3000);
     } catch (err) {
       setError(err?.message || 'Could not create account. This email may already be in use.');
@@ -74,7 +95,7 @@ export default function Auth() {
     setLoading(true);
     setError('');
     try {
-      await base44.auth.sendPasswordResetEmail(form.email);
+      await apiClient.auth.forgotPassword(form.email);
       setSuccess('Password reset email sent! Check your inbox.');
     } catch (err) {
       setError(err?.message || 'Could not send reset email. Please try again.');

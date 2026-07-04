@@ -2,9 +2,12 @@ import { jwtUtils } from '../config/auth.js';
 
 export const authMiddleware = (req, res, next) => {
   try {
+    console.log(`authMiddleware checking headers for ${req.method} ${req.path}`);
     const authHeader = req.headers.authorization;
+    console.log('authHeader:', authHeader ? 'present' : 'missing');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('authMiddleware: No auth header or invalid format');
       return res.status(401).json({ error: 'No authorization token provided' });
     }
 
@@ -12,12 +15,14 @@ export const authMiddleware = (req, res, next) => {
     const decoded = jwtUtils.verifyToken(token);
 
     if (!decoded) {
+      console.log('authMiddleware: Invalid or expired token', token);
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('authMiddleware error:', error);
     res.status(401).json({ error: 'Authentication failed' });
   }
 };

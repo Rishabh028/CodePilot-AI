@@ -28,7 +28,7 @@ import MigrationGuide from './pages/MigrationGuide/index';
 import AppLayout from './components/layout/AppLayout.jsx';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -48,6 +48,14 @@ const AuthenticatedApp = () => {
       navigateToLogin();
       return null;
     }
+  }
+
+  // Define public routes that don't require authentication
+  const isPublicRoute = ['/', '/features', '/about', '/auth', '/migration-guide'].includes(window.location.pathname);
+
+  if (!isAuthenticated && !isPublicRoute) {
+    navigateToLogin();
+    return null;
   }
 
   return (
