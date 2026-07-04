@@ -6,6 +6,7 @@ import { logInfo, logError } from '../utils/logger.js';
  */
 
 const MOCK_RESPONSES = {
+  generic: (input) => `This is a mock AI response. I received your prompt: "${input.slice(0, 50)}...". Please add your GEMINI_API_KEY to your Render environment variables to get real AI responses!`,
   requirements: (input) => `# Requirements Analysis
 
 ## Executive Summary
