@@ -355,7 +355,9 @@ export async function invokeAgent(agentType, input) {
             throw claudeError;
           }
         } else {
-          throw error;
+          logInfo('Gemini failed and Claude not configured. Falling back to Mock AI.');
+          result = await callMockAI(agentType, input);
+          result.note = `Gemini API failed: ${error.message}. Fell back to Mock AI.`;
         }
       }
     } else if (PRIMARY_PROVIDER === 'claude') {
@@ -370,10 +372,14 @@ export async function invokeAgent(agentType, input) {
           } catch (geminiError) {
             lastError = geminiError;
             logError('Gemini failed', geminiError);
-            throw geminiError;
+            logInfo('Claude and Gemini failed. Falling back to Mock AI.');
+            result = await callMockAI(agentType, input);
+            result.note = `Claude and Gemini failed: ${geminiError.message}. Fell back to Mock AI.`;
           }
         } else {
-          throw error;
+          logInfo('Claude failed and Gemini not configured. Falling back to Mock AI.');
+          result = await callMockAI(agentType, input);
+          result.note = `Claude failed: ${error.message}. Fell back to Mock AI.`;
         }
       }
     } else {
@@ -401,9 +407,21 @@ export async function callGenericLLM(prompt) {
   try {
     let result;
     if (PRIMARY_PROVIDER === 'gemini') {
-      result = await callGemini(prompt);
+      try {
+        result = await callGemini(prompt);
+      } catch (geminiError) {
+        logError('Gemini failed, falling back to Mock AI', geminiError);
+        result = await callMockAI('generic', prompt);
+        result.note = `Gemini API failed: ${geminiError.message}. Fell back to Mock AI.`;
+      }
     } else if (PRIMARY_PROVIDER === 'claude') {
-      result = await callClaude(prompt);
+      try {
+        result = await callClaude(prompt);
+      } catch (claudeError) {
+        logError('Claude failed, falling back to Mock AI', claudeError);
+        result = await callMockAI('generic', prompt);
+        result.note = `Claude API failed: ${claudeError.message}. Fell back to Mock AI.`;
+      }
     } else {
       result = await callMockAI('generic', prompt);
     }
