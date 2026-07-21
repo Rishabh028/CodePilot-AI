@@ -13,7 +13,7 @@ async function main() {
         remediation: "Test recommendation",
         status: "open",
         projectId: null,
-        userId: "cm0x999990000000000000000", // fake valid cuid
+        userId: "cmr6dmmel000010slyybwkxst",
         cveBucket: "test_category"
       }
     });
