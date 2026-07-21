@@ -16,22 +16,23 @@ export const getSecurityIssues = async (req, res) => {
 
 export const createSecurityIssue = async (req, res) => {
   try {
-    const { title, severity, description, code, remediation, status, project_id, category, file_path, line_number } = req.body;
+    const { title, severity, description, code, remediation, recommendation, status, project_id, category, file_path, line_number } = req.body;
     const issue = await prisma.securityIssue.create({
       data: {
         title,
         severity,
         description,
         code,
-        remediation,
+        remediation: remediation || recommendation,
         status: status || 'open',
-        projectId: project_id,
+        projectId: project_id || null,
         userId: req.user.userId,
         cveBucket: category // Reusing existing field
       }
     });
     res.status(201).json(issue);
   } catch (error) {
+    console.error('Failed to create security issue:', error);
     res.status(500).json({ error: 'Failed to create security issue' });
   }
 };

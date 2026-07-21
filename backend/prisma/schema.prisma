@@ -246,8 +246,8 @@ model SecurityIssue {
   userId             String
   user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  projectId          String
-  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId          String?
+  project            Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
