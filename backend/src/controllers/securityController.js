@@ -18,9 +18,10 @@ export const createSecurityIssue = async (req, res) => {
   try {
     const { title, severity, description, code, remediation, recommendation, status, project_id, category, file_path, line_number } = req.body;
     
-    if (!title || !severity || !description) {
-      console.error('Missing required fields in security issue payload:', req.body);
-      // fallback values so it doesn't crash Prisma
+    const userId = req.user?.userId || req.user?.id || req.user?.sub;
+    if (!userId) {
+      console.error('No userId found in req.user:', req.user);
+      return res.status(401).json({ error: 'User ID missing from authorization token' });
     }
 
     const issue = await prisma.securityIssue.create({
@@ -28,18 +29,18 @@ export const createSecurityIssue = async (req, res) => {
         title: title || 'Unknown Security Issue',
         severity: severity || 'info',
         description: description || 'No description provided.',
-        code,
-        remediation: remediation || recommendation,
+        code: code || null,
+        remediation: remediation || recommendation || null,
         status: status || 'open',
         projectId: project_id || null,
-        userId: req.user.userId,
-        cveBucket: category // Reusing existing field
+        userId: userId,
+        cveBucket: category || null
       }
     });
     res.status(201).json(issue);
   } catch (error) {
     console.error('Failed to create security issue:', error);
-    res.status(500).json({ error: 'Failed to create security issue' });
+    res.status(500).json({ error: 'Failed to create security issue', details: error.message });
   }
 };
 

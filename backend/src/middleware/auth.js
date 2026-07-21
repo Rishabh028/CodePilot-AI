@@ -19,7 +19,12 @@ export const authMiddleware = (req, res, next) => {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
-    req.user = decoded;
+    const userId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
+    req.user = {
+      ...decoded,
+      userId,
+      id: userId
+    };
     next();
   } catch (error) {
     console.error('authMiddleware error:', error);
@@ -36,7 +41,12 @@ export const optionalAuthMiddleware = (req, res, next) => {
       const decoded = jwtUtils.verifyToken(token);
 
       if (decoded) {
-        req.user = decoded;
+        const userId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
+        req.user = {
+          ...decoded,
+          userId,
+          id: userId
+        };
       }
     }
 
