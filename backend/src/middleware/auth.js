@@ -1,13 +1,13 @@
 import { jwtUtils } from '../config/auth.js';
+import { getPrismaClient } from '../config/database.js';
 
-export const authMiddleware = (req, res, next) => {
+const prisma = getPrismaClient();
+
+export const authMiddleware = async (req, res, next) => {
   try {
-    console.log(`authMiddleware checking headers for ${req.method} ${req.path}`);
     const authHeader = req.headers.authorization;
-    console.log('authHeader:', authHeader ? 'present' : 'missing');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('authMiddleware: No auth header or invalid format');
       return res.status(401).json({ error: 'No authorization token provided' });
     }
 
@@ -15,15 +15,30 @@ export const authMiddleware = (req, res, next) => {
     const decoded = jwtUtils.verifyToken(token);
 
     if (!decoded) {
-      console.log('authMiddleware: Invalid or expired token', token);
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
-    const userId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
+    const targetId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
+    
+    // Verify user exists in database or fallback by email
+    let user = null;
+    if (targetId) {
+      user = await prisma.user.findUnique({ where: { id: targetId } });
+    }
+    if (!user && decoded.email) {
+      user = await prisma.user.findUnique({ where: { email: decoded.email } });
+    }
+
+    if (!user) {
+      console.log('authMiddleware: User not found in database for token:', targetId, decoded.email);
+      return res.status(401).json({ error: 'User account no longer exists. Please sign in again.' });
+    }
+
     req.user = {
       ...decoded,
-      userId,
-      id: userId
+      userId: user.id,
+      id: user.id,
+      email: user.email
     };
     next();
   } catch (error) {
@@ -32,7 +47,7 @@ export const authMiddleware = (req, res, next) => {
   }
 };
 
-export const optionalAuthMiddleware = (req, res, next) => {
+export const optionalAuthMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -41,12 +56,23 @@ export const optionalAuthMiddleware = (req, res, next) => {
       const decoded = jwtUtils.verifyToken(token);
 
       if (decoded) {
-        const userId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
-        req.user = {
-          ...decoded,
-          userId,
-          id: userId
-        };
+        const targetId = decoded.userId || decoded.id || decoded.sub || decoded.user_id;
+        let user = null;
+        if (targetId) {
+          user = await prisma.user.findUnique({ where: { id: targetId } });
+        }
+        if (!user && decoded.email) {
+          user = await prisma.user.findUnique({ where: { email: decoded.email } });
+        }
+
+        if (user) {
+          req.user = {
+            ...decoded,
+            userId: user.id,
+            id: user.id,
+            email: user.email
+          };
+        }
       }
     }
 
