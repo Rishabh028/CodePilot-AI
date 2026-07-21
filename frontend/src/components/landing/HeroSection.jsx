@@ -46,6 +46,15 @@ export default function HeroSection() {
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-[#05010D]" />
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-screen"
+      >
+        <source src="/purple-desert.mp4" type="video/mp4" />
+      </video>
       <div className="absolute inset-0" style={{
         backgroundImage: 'linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)',
         backgroundSize: '60px 60px'
