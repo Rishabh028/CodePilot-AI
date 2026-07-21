@@ -17,11 +17,17 @@ export const getSecurityIssues = async (req, res) => {
 export const createSecurityIssue = async (req, res) => {
   try {
     const { title, severity, description, code, remediation, recommendation, status, project_id, category, file_path, line_number } = req.body;
+    
+    if (!title || !severity || !description) {
+      console.error('Missing required fields in security issue payload:', req.body);
+      // fallback values so it doesn't crash Prisma
+    }
+
     const issue = await prisma.securityIssue.create({
       data: {
-        title,
-        severity,
-        description,
+        title: title || 'Unknown Security Issue',
+        severity: severity || 'info',
+        description: description || 'No description provided.',
         code,
         remediation: remediation || recommendation,
         status: status || 'open',
