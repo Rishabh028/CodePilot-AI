@@ -97,6 +97,59 @@ function IssueCard({ issue, onResolve, onDismiss }) {
   );
 }
 
+function parseMarkdownIssues(text) {
+  if (!text || typeof text !== 'string') return [];
+
+  const issues = [];
+  const sections = text.split(/(?=###|\n\s*#{2,4}\s+|\n\d+\.\s+)/);
+
+  for (const sec of sections) {
+    const trimmed = sec.trim();
+    if (!trimmed || trimmed.length < 15) continue;
+
+    let severity = 'medium';
+    if (/critical|cvss 9|cvss 10/i.test(trimmed)) severity = 'critical';
+    else if (/high/i.test(trimmed)) severity = 'high';
+    else if (/low/i.test(trimmed)) severity = 'low';
+    else if (/info/i.test(trimmed)) severity = 'info';
+
+    const lines = trimmed.split('\n');
+    let title = lines[0].replace(/^#+\s*/, '').replace(/^\d+\.\s*/, '').replace(/:\s*$/, '').trim();
+    if (!title || title.toLowerCase().includes('report') || title.toLowerCase().includes('summary') || title.length > 80) {
+      continue;
+    }
+
+    const codeMatch = trimmed.match(/```(?:javascript|js|sql|ts|bash)?\s*([\s\S]*?)\s*```/);
+    const auto_fix = codeMatch ? codeMatch[1].trim() : null;
+
+    let recommendation = null;
+    const fixMatch = trimmed.match(/(?:Fix|Recommendation|Remediation):\s*([^\n]+)/i);
+    if (fixMatch) recommendation = fixMatch[1].trim();
+
+    issues.push({
+      title,
+      severity,
+      category: 'Security',
+      description: trimmed.slice(0, 300),
+      recommendation,
+      auto_fix
+    });
+  }
+
+  if (issues.length === 0 && text.length > 20) {
+    issues.push({
+      title: 'Security Audit Scan Results',
+      severity: text.toLowerCase().includes('high') ? 'high' : 'medium',
+      category: 'Audit Report',
+      description: text.slice(0, 400) + '...',
+      recommendation: 'Review full audit log details.',
+      auto_fix: null
+    });
+  }
+
+  return issues;
+}
+
 export default function Security() {
   const [code, setCode] = useState('');
   const [scanResult, setScanResult] = useState(null);
@@ -111,10 +164,18 @@ export default function Security() {
   const scanMutation = useMutation({
     mutationFn: async () => {
       setScanResult('scanning');
-      const prompt = `You are a security expert. Perform a comprehensive security audit on this code.\n\nCode:\n${code}\n\nFind ALL security vulnerabilities including:\n- SQL Injection (show exact vulnerable lines)\n- XSS (stored, reflected, DOM)\n- CSRF vulnerabilities\n- Authentication/Authorization issues\n- Hardcoded secrets or credentials\n- Insecure configurations (CORS, headers, etc.)\n- Rate limiting missing\n- Input validation issues\n- Dependency vulnerabilities\n\nFor each issue provide: severity (critical/high/medium/low/info), category, description, file_path (if determinable), line_number (if determinable), recommendation, and auto_fix code.\n\nPlease return JSON in the format: { "summary": "...", "issues": [ { "title": "...", "severity": "...", "category": "...", "description": "...", "recommendation": "...", "auto_fix": "..." } ] }`;
       
-      const resResponse = await apiClient.ai.invokeLLM(prompt);
-      const resultOutput = resResponse.output;
+      let resultOutput = '';
+      try {
+        // Use the exact same agent engine as the Agents page
+        const agentRes = await apiClient.agents.run('security', code);
+        resultOutput = agentRes.output || '';
+      } catch (err) {
+        // Fallback to invokeLLM if agents.run fails
+        const prompt = `You are a security expert. Perform a security audit on this code:\n${code}\nPlease return JSON: { "issues": [ { "title": "...", "severity": "...", "category": "...", "description": "...", "recommendation": "...", "auto_fix": "..." } ] }`;
+        const resResponse = await apiClient.ai.invokeLLM(prompt);
+        resultOutput = resResponse.output || '';
+      }
       
       let res = { issues: [] };
       try {
@@ -122,12 +183,21 @@ export default function Security() {
         if (jsonMatch) res = JSON.parse(jsonMatch[1]);
         else res = JSON.parse(resultOutput);
       } catch (e) {
-        // Fallback or empty issues
+        // Fallback to Markdown parser if JSON parse fails
+        res.issues = parseMarkdownIssues(resultOutput);
+      }
+
+      if (!res.issues || !Array.isArray(res.issues) || res.issues.length === 0) {
+        res.issues = parseMarkdownIssues(resultOutput);
       }
 
       const issuesList = res?.issues || [];
       for (const issue of issuesList) {
-        await apiClient.securityIssues.create({ ...issue, status: 'open' });
+        try {
+          await apiClient.securityIssues.create({ ...issue, status: 'open' });
+        } catch (err) {
+          console.warn('Could not save security issue to DB:', err);
+        }
       }
       setScanResult(res);
       return res;
@@ -142,9 +212,10 @@ export default function Security() {
         toast.warning(`Found ${count} issue${count !== 1 ? 's' : ''}${critical > 0 ? ` (${critical} critical)` : ''}`);
       }
     },
-    onError: () => {
+    onError: (err) => {
       setScanResult(null);
-      toast.error('Scan failed. Please try again.');
+      console.error('Scan error:', err);
+      toast.error('Scan failed: ' + (err.message || 'Please try again.'));
     },
   });
 
