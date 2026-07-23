@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import GlassCard from '@/components/shared/GlassCard.jsx';
+import AgentOutputPanel from '@/components/agents/AgentOutputPanel.jsx';
 import { toast } from 'sonner';
 
 const SEVERITY_CONFIG = {
@@ -153,6 +154,8 @@ function parseMarkdownIssues(text) {
 export default function Security() {
   const [code, setCode] = useState('');
   const [scanResult, setScanResult] = useState(null);
+  const [activeRun, setActiveRun] = useState(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: issuesData = [] } = useQuery({
@@ -164,18 +167,46 @@ export default function Security() {
   const scanMutation = useMutation({
     mutationFn: async () => {
       setScanResult('scanning');
-      
+      const startTime = Date.now();
+
+      setActiveRun({
+        status: 'running',
+        input: code,
+        output: '',
+        tokens_used: 0,
+        duration_ms: 0,
+        agent_type: 'security',
+      });
+      setIsStreaming(false);
+
       let resultOutput = '';
+      let agentRes = null;
       try {
         // Use the exact same agent engine as the Agents page
-        const agentRes = await apiClient.agents.run('security', code);
-        resultOutput = agentRes.output || '';
+        agentRes = await apiClient.agents.run('security', code);
+        resultOutput = agentRes?.output || '';
       } catch (err) {
         // Fallback to invokeLLM if agents.run fails
         const prompt = `You are a security expert. Perform a security audit on this code:\n${code}\nPlease return JSON: { "issues": [ { "title": "...", "severity": "...", "category": "...", "description": "...", "recommendation": "...", "auto_fix": "..." } ] }`;
         const resResponse = await apiClient.ai.invokeLLM(prompt);
-        resultOutput = resResponse.output || '';
+        resultOutput = resResponse?.output || '';
       }
+
+      const duration = Date.now() - startTime;
+      const finalRun = {
+        status: 'completed',
+        input: code,
+        output: resultOutput,
+        tokens_used: agentRes?.tokens_used || Math.floor((code.length + resultOutput.length) / 4),
+        provider: agentRes?.provider || 'gemini',
+        duration_ms: duration,
+        agent_type: 'security',
+        created_date: new Date().toISOString(),
+      };
+
+      setActiveRun(finalRun);
+      setIsStreaming(true);
+      setTimeout(() => setIsStreaming(false), Math.min((resultOutput.length || 100) * 2, 3000));
       
       let res = { issues: [] };
       try {
@@ -214,6 +245,7 @@ export default function Security() {
     },
     onError: (err) => {
       setScanResult(null);
+      setActiveRun(r => r ? { ...r, status: 'failed', error: err?.message || 'Scan failed' } : null);
       console.error('Scan error:', err);
       toast.error('Scan failed: ' + (err.message || 'Please try again.'));
     },
@@ -271,7 +303,7 @@ export default function Security() {
           <Button
             onClick={() => scanMutation.mutate()}
             disabled={!code.trim() || scanMutation.isPending}
-            className="bg-gradient-to-r from-neon-pink to-neon-purple text-white hover:opacity-90"
+            className="bg-gradient-to-r from-neon-pink to-neon-purple text-white hover:opacity-90 cursor-pointer"
           >
             {scanMutation.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Scanning...</>
@@ -285,26 +317,26 @@ export default function Security() {
             </p>
           )}
         </div>
-
-        {/* Scan running skeleton */}
-        {scanMutation.isPending && (
-          <div className="mt-4 space-y-2.5 animate-pulse">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="glass rounded-lg p-3 flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-neon-purple/40" />
-                <div className="h-3 bg-secondary/50 rounded flex-1" />
-                <div className="h-5 w-16 bg-secondary/50 rounded-full" />
-              </div>
-            ))}
-          </div>
-        )}
       </GlassCard>
+
+      {/* Active Audit Report Output Panel (Rich Output like Agents Page) */}
+      <AnimatePresence>
+        {activeRun && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+            <AgentOutputPanel
+              run={activeRun}
+              isStreaming={isStreaming}
+              onRetry={() => activeRun?.input && scanMutation.mutate()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Issues List */}
       {openIssues.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3 mt-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-heading font-semibold text-lg">Open Issues ({openIssues.length})</h3>
+            <h3 className="font-heading font-semibold text-lg">Saved Open Issues ({openIssues.length})</h3>
             {criticalCount > 0 && (
               <Badge className="bg-red-500/10 text-red-400 border border-red-500/20">
                 {criticalCount} critical
@@ -331,7 +363,7 @@ export default function Security() {
         </div>
       )}
 
-      {openIssues.length === 0 && !scanMutation.isPending && (
+      {openIssues.length === 0 && !scanMutation.isPending && !activeRun && (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-full bg-emerald-400/10 flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-emerald-400" />

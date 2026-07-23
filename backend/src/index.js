@@ -25,18 +25,36 @@ const httpServer = createServer(app);
 // Socket.io setup
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: env.server.frontendUrl,
+    origin: '*',
     credentials: true,
   },
 });
 
-// Middleware
-app.use(cors({
-  origin: env.server.frontendUrl,
+// Middleware - Dynamic robust CORS
+const allowedOrigins = [
+  env.server.frontendUrl,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://code-pilot-ai-drab.vercel.app',
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin) || origin.startsWith('http://localhost')) {
+      return callback(null, true);
+    }
+    callback(null, true);
+  },
   credentials: true,
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Logging middleware
 app.use((req, res, next) => {
