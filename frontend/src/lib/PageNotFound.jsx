@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X, Zap } from 'lucide-react';
 
 const NAV_LINKS = ['Domain', 'Servers', 'Cloud', 'Managed', 'Email', 'Privacy'];
 
@@ -84,14 +84,13 @@ export default function PageNotFound() {
         {/* NAVIGATION BAR */}
         <header className="w-full flex items-center justify-between px-6 md:px-12 lg:px-16 py-5">
           {/* Logo (left) */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <svg viewBox="0 0 480 480" className="w-8 h-8 fill-white transition-transform group-hover:scale-105 duration-300">
-              <path d="M480 240a240 240 0 0 0-240 240 240 240 0 0 0 240-240Z" />
-              <path d="M240 0A240 240 0 0 0 0 240 240 240 0 0 0 240 0Z" />
-              <path d="M480 240A240 240 0 0 0 240 0a240 240 0 0 0 240 240Z" />
-              <path d="M240 480A240 240 0 0 0 0 240a240 240 0 0 0 240 240Z" />
-            </svg>
-            <span className="text-white text-xl font-bold tracking-wider">NEXOVA</span>
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5CF6] to-[#06B6D4] flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all duration-300 group-hover:scale-105">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-heading font-bold text-xl text-white">
+              CodePilot <span className="bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] bg-clip-text text-transparent">AI</span>
+            </span>
           </Link>
 
           {/* Desktop nav links (center) */}
