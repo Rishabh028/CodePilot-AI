@@ -31,6 +31,73 @@
 
 ---
 
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    User["👨‍💻 Developer / User"] -->|Browser Request| Frontend["🖥️ Frontend Application (React 18 + Vite)"]
+
+    subgraph CloudFrontend["🌐 Vercel Edge Hosting"]
+        Frontend -->|SPA Router & UI Components| CodeStudio["⚡ Code Studio & Agents Workspace"]
+    end
+
+    subgraph BackendControlPlane["⚡ CodePilot Backend Engine (Node.js / Express)"]
+        APIRouter["🔌 REST API Router (/api/*)"]
+        AuthMiddleware["🔐 Auth Middleware (JWT / Google OAuth)"]
+        AgentDispatcher["🤖 Multi-Agent Orchestrator"]
+        WSServer["📡 Real-time WebSocket Server (Socket.io)"]
+    end
+
+    Frontend -->|API Requests & JWT| APIRouter
+    Frontend -->|Live Stream Subscriptions| WSServer
+    APIRouter --> AuthMiddleware
+    AuthMiddleware --> AgentDispatcher
+
+    subgraph AICore["🧠 Multi-LLM Execution Layer"]
+        PromptEngine["📝 8 Specialized Agent Prompt Templates"]
+        GeminiAPI["⚡ Google Gemini 2.5 Flash / 1.5 Pro API"]
+        ClaudeAPI["🤖 Anthropic Claude 3.5 Sonnet (Fallback)"]
+        MockAI["🛠️ Mock AI Engine (Rate-Limit Fallback)"]
+    end
+
+    AgentDispatcher --> PromptEngine
+    PromptEngine --> GeminiAPI
+    GeminiAPI -->|Fallback on Error| ClaudeAPI
+    ClaudeAPI -->|Fallback if Unconfigured| MockAI
+    AgentDispatcher -->|Stream Status & Tokens| WSServer
+
+    subgraph DataLayer["💾 Persistence & Database Layer"]
+        Prisma["🔷 Prisma ORM Layer"]
+        PostgresDB["🐘 Neon Serverless PostgreSQL Database"]
+    end
+
+    AgentDispatcher -->|Save Agent Runs & Audit Logs| Prisma
+    APIRouter -->|CRUD Operations (Users, Projects, Security)| Prisma
+    Prisma -->|Persist Records| PostgresDB
+```
+
+### 🧩 Core Architecture Components
+
+1. **Client & UI Layer (Frontend — Hosted on Vercel)**
+   - Built with **React 18**, **Vite**, **Tailwind CSS**, and **Framer Motion**.
+   - Features an interactive **Dashboard**, **Code Studio**, **Security Center**, and **8 Agent Workspaces**.
+   - Connects to the backend via REST API calls and Socket.io WebSockets for live status updates.
+
+2. **Backend Control Plane (Express.js — Hosted on Render)**
+   - **REST API Router**: Handles endpoints for authentication, project management, agent execution, security scanning, and deployments.
+   - **Auth & Session Guard**: Validates JWT tokens and Google OAuth credentials against database records.
+   - **WebSocket Server (Socket.io)**: Manages real-time event streaming, execution progress logs, and token usage feedback.
+
+3. **Multi-Agent AI Execution Engine**
+   - **Prompt Engineering System**: Transforms raw user prompts into structured role-specific instructions for 8 distinct agent personas (Requirements Analyst, Code Generator, Code Reviewer, Security Scanner, Test Generator, Documentation Writer, Deployment Engineer, Performance Optimizer).
+   - **Multi-LLM Fallback Pipeline**: Primary requests route through **Google Gemini 2.5 Flash / 1.5 Pro** with dynamic model discovery. Automatically fails over to **Anthropic Claude 3.5 Sonnet**, and defaults to a local **Mock AI Engine** if external quotas or rate-limits are reached.
+
+4. **Persistence & Data Access Layer**
+   - **Prisma ORM**: Manages type-safe queries, data modeling, and schema migrations.
+   - **Neon Serverless PostgreSQL**: Stores persistent records including user profiles, project metadata, security issue findings, code review results, and historical agent run logs.
+
+---
+
 ## 🏗️ Tech Stack
 
 ### ⚙️ Backend
