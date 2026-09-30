@@ -35,45 +35,45 @@
 
 ```mermaid
 flowchart TD
-    User["👨‍💻 Developer / User"] -->|Browser Request| Frontend["🖥️ Frontend Application (React 18 + Vite)"]
+    User["Developer / User"] -->|"Browser Request"| Frontend["Frontend Application (React 18 + Vite)"]
 
-    subgraph CloudFrontend["🌐 Vercel Edge Hosting"]
-        Frontend -->|SPA Router & UI Components| CodeStudio["⚡ Code Studio & Agents Workspace"]
+    subgraph CloudFrontend["Vercel Edge Hosting"]
+        Frontend -->|"SPA Router & UI Components"| CodeStudio["Code Studio & Agents Workspace"]
     end
 
-    subgraph BackendControlPlane["⚡ CodePilot Backend Engine (Node.js / Express)"]
-        APIRouter["🔌 REST API Router (/api/*)"]
-        AuthMiddleware["🔐 Auth Middleware (JWT / Google OAuth)"]
-        AgentDispatcher["🤖 Multi-Agent Orchestrator"]
-        WSServer["📡 Real-time WebSocket Server (Socket.io)"]
+    subgraph BackendControlPlane["CodePilot Backend Engine (Node.js / Express)"]
+        APIRouter["REST API Router (/api/*)"]
+        AuthMiddleware["Auth Middleware (JWT / Google OAuth)"]
+        AgentDispatcher["Multi-Agent Orchestrator"]
+        WSServer["Real-time WebSocket Server (Socket.io)"]
     end
 
-    Frontend -->|API Requests & JWT| APIRouter
-    Frontend -->|Live Stream Subscriptions| WSServer
+    Frontend -->|"API Requests & JWT"| APIRouter
+    Frontend -->|"Live Stream Subscriptions"| WSServer
     APIRouter --> AuthMiddleware
     AuthMiddleware --> AgentDispatcher
 
-    subgraph AICore["🧠 Multi-LLM Execution Layer"]
-        PromptEngine["📝 8 Specialized Agent Prompt Templates"]
-        GeminiAPI["⚡ Google Gemini 2.5 Flash / 1.5 Pro API"]
-        ClaudeAPI["🤖 Anthropic Claude 3.5 Sonnet (Fallback)"]
-        MockAI["🛠️ Mock AI Engine (Rate-Limit Fallback)"]
+    subgraph AICore["Multi-LLM Execution Layer"]
+        PromptEngine["8 Specialized Agent Prompt Templates"]
+        GeminiAPI["Google Gemini 2.5 Flash / 1.5 Pro API"]
+        ClaudeAPI["Anthropic Claude 3.5 Sonnet (Fallback)"]
+        MockAI["Mock AI Engine (Rate-Limit Fallback)"]
     end
 
     AgentDispatcher --> PromptEngine
     PromptEngine --> GeminiAPI
-    GeminiAPI -->|Fallback on Error| ClaudeAPI
-    ClaudeAPI -->|Fallback if Unconfigured| MockAI
-    AgentDispatcher -->|Stream Status & Tokens| WSServer
+    GeminiAPI -->|"Fallback on Error"| ClaudeAPI
+    ClaudeAPI -->|"Fallback if Unconfigured"| MockAI
+    AgentDispatcher -->|"Stream Status & Tokens"| WSServer
 
-    subgraph DataLayer["💾 Persistence & Database Layer"]
-        Prisma["🔷 Prisma ORM Layer"]
-        PostgresDB["🐘 Neon Serverless PostgreSQL Database"]
+    subgraph DataLayer["Persistence & Database Layer"]
+        Prisma["Prisma ORM Layer"]
+        PostgresDB["Neon Serverless PostgreSQL Database"]
     end
 
-    AgentDispatcher -->|Save Agent Runs & Audit Logs| Prisma
-    APIRouter -->|CRUD Operations (Users, Projects, Security)| Prisma
-    Prisma -->|Persist Records| PostgresDB
+    AgentDispatcher -->|"Save Agent Runs & Audit Logs"| Prisma
+    APIRouter -->|"CRUD Operations"| Prisma
+    Prisma -->|"Persist Records"| PostgresDB
 ```
 
 ### 🧩 Core Architecture Components
